@@ -1,0 +1,8 @@
+const assert=require('node:assert/strict');const {STAFF,normalize,summarize}=require('./core');
+
+const h=['ลำดับ','เลขที่โครงการ','เลขคุมสัญญา','รายการ','งบประมาณ','หมวดหมู่ประเภทงาน','วิธีการจัดจ้าง','วงเงินงบประมาณ','วงเงินที่ตกลงจ้าง','ผู้รับจ้าง','เลขที่สัญญา/ใบสั่งจ้าง','วันที่','วันที่เริ่มต้นสัญญา','วันที่สิ้นสุดสัญญา','งวดงาน','สถานะ','จำนวนเงินที่ส่งการเงิน','วันที่ส่งการเงิน'];
+const sheets=Object.fromEntries(STAFF.map(s=>[s,[]])),headers=Object.fromEntries(STAFF.map(s=>[s,h]));
+sheets['ส้ม']=[[1,'','','งานทดสอบ','เงินบำรุง','PC.23','เฉพาะเจาะจง',40000,36000,'ผู้รับจ้างทดสอบ','00161','','','','','',10000,'01/10/2569'],[2,'','','งวดที่สอง','เงินบำรุง','PC.23','เฉพาะเจาะจง',40000,36000,'ผู้รับจ้างทดสอบ','00161','','','','','',20000,'01/11/2569']];
+let newData=normalize(sheets,headers),newSummary=summarize(newData.records);assert.equal(newData.records[0].contract,'00161');assert.equal(newData.records[0].vendor,'ผู้รับจ้างทดสอบ');assert.equal(newSummary.allocated,40000);assert.equal(newSummary.agreed,36000);assert.equal(newSummary.allocated-newSummary.agreed,4000);assert.equal(newSummary.count,1);assert.equal(newSummary.paid,30000);assert.equal(summarize(newData.records,'ส้ม','2026-10').paid,10000);assert.equal(summarize(newData.records,'ดรีม').paid,0);
+const reordered=Object.fromEntries(STAFF.map(s=>[s,[...h].reverse()])),rev=Object.fromEntries(STAFF.map(s=>[s,sheets[s].map(r=>[...r].reverse())]));assert.deepEqual(normalize(rev,reordered),newData);assert.throws(()=>normalize(sheets,{...headers,'ส้ม':[]}));
+console.log('Header reorder, vendor/contract, budget, balance, duplicate installments and month/person checks passed');
