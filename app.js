@@ -1,4 +1,5 @@
 const ID='1_mZfQJLd0nvw9twm3vDVl954JvdMwBXyULrqGypUbok';
+const GOOGLE_CLIENT_ID='712316085580-jj3ri3sk7vn7ag8sl4np4p1aob74q619.apps.googleusercontent.com';
 const $=id=>document.getElementById(id),fmt=n=>n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
 const colors=['#197c69','#45c6a5','#034d60','#90c94b','#d4a557','#8b9a8f'];
 let source={updatedAt:'2026-10-22T00:00:00+07:00',sheets:Object.fromEntries(STAFF.map(s=>[s,[]]))},data=normalize(source.sheets),token=null;
@@ -16,4 +17,6 @@ $('staff').onchange=render;$('month').onchange=render;$('refresh').onclick=refre
 $('connect').onclick=async()=>{try{const client_id=$('clientId').value.trim();if(!client_id.endsWith('.apps.googleusercontent.com'))throw Error('กรุณากรอก OAuth Client ID ของเว็บนี้');if(!window.google?.accounts?.oauth2){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=resolve;s.onerror=()=>reject(Error('โหลดบริการเข้าสู่ระบบไม่ได้'));document.head.append(s);});}google.accounts.oauth2.initTokenClient({client_id,scope:'https://www.googleapis.com/auth/spreadsheets.readonly',callback:async r=>{if(r.error){$('status').textContent='เข้าสู่ระบบไม่สำเร็จ';return;}token=r.access_token;await refresh();}}).requestAccessToken();}catch(e){$('status').textContent=e.message;}};
 $('import').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>10*1024*1024)throw Error('ไฟล์ใหญ่เกิน 10 MB');const next=JSON.parse(await file.text());if(!next.updatedAt||Number.isNaN(Date.parse(next.updatedAt)))throw Error('ไม่มีวันที่อัปเดตที่ถูกต้อง');accept(next,'ข้อมูลจากไฟล์ที่นำเข้า');}catch(e){$('status').textContent='นำเข้าไม่สำเร็จ: '+e.message;}};
 $('export').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(source,null,2)],{type:'application/json'}));const a=element('a');a.href=u;a.download='staff-dashboard-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
+$('clientId').value=GOOGLE_CLIENT_ID;
 render();if(window.google?.script?.run)refresh();
+else { $('sourceLabel').textContent='ยังไม่ได้เชื่อม Google Sheets'; $('status').textContent='กดเข้าสู่ระบบ Google เพื่ออ่านข้อมูลปัจจุบัน'; }
