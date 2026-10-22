@@ -14,7 +14,43 @@ function accept(next,label){const parsed=normalize(next.sheets);source=next;data
 async function readGoogle(){if(!token)throw Error('กรุณาเชื่อมต่อ Google ในส่วนเชื่อมต่อข้อมูลก่อน');const ranges=STAFF.map(s=>`'${s}'!A5:Q`);const fields='sheets(properties(title),data(startRow,rowData(values(userEnteredValue,effectiveValue))))';const url='https://sheets.googleapis.com/v4/spreadsheets/'+ID+'?includeGridData=true&fields='+encodeURIComponent(fields)+'&'+ranges.map(r=>'ranges='+encodeURIComponent(r)).join('&');const res=await fetch(url,{headers:{Authorization:'Bearer '+token}});if(!res.ok)throw Error(res.status===401?'การเข้าสู่ระบบหมดอายุ กรุณาเชื่อมต่อใหม่':'อ่านข้อมูลไม่ได้ ตรวจสิทธิ์เข้าถึงไฟล์และการเปิด Google Sheets API');const json=await res.json();const sheets={};for(const s of json.sheets||[])sheets[s.properties.title]=(s.data?.[0]?.rowData||[]).map(r=>(r.values||[]).map((c,j)=>{if(j===16&&c.userEnteredValue?.formulaValue?.includes('TODAY()'))return '';const v=c.effectiveValue||{};if(v.errorValue)return '#ERROR';return v.numberValue??v.stringValue??'';}));accept({updatedAt:new Date().toISOString(),sheets},'ข้อมูลสดจาก Google Sheets');}
 async function refresh(){const b=$('refresh');b.disabled=true;try{if(window.google?.script?.run){await new Promise((resolve,reject)=>google.script.run.withSuccessHandler(v=>{accept(v,'ข้อมูลสดจาก Google Sheets');resolve();}).withFailureHandler(reject).getDashboardData());}else await readGoogle();}catch(e){$('status').textContent=e.message||String(e);}finally{b.disabled=false;}}
 $('staff').onchange=render;$('month').onchange=render;$('refresh').onclick=refresh;
-$('connect').onclick=async()=>{try{const client_id=$('clientId').value.trim();if(!client_id.endsWith('.apps.googleusercontent.com'))throw Error('กรุณากรอก OAuth Client ID ของเว็บนี้');if(!window.google?.accounts?.oauth2){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=resolve;s.onerror=()=>reject(Error('โหลดบริการเข้าสู่ระบบไม่ได้'));document.head.append(s);});}google.accounts.oauth2.initTokenClient({client_id,scope:'https://www.googleapis.com/auth/spreadsheets.readonly',callback:async r=>{if(r.error){$('status').textContent='เข้าสู่ระบบไม่สำเร็จ';return;}token=r.access_token;await refresh();}}).requestAccessToken();}catch(e){$('status').textContent=e.message;}};
+// Load Google before the click so the popup retains the user's browser gesture.
+const authStatus=element('p','กำลังโหลดบริการเข้าสู่ระบบ Google…');
+authStatus.id='authStatus';authStatus.setAttribute('role','status');authStatus.setAttribute('aria-live','polite');
+$('connect').after(authStatus);
+function authMessage(message){authStatus.textContent=message;$('status').textContent=message;}
+let authLoading=false;
+function loadGoogleIdentity(){
+  if(window.google?.accounts?.oauth2){authMessage('พร้อมเชื่อมต่อ กดปุ่มเข้าสู่ระบบ Google');return;}
+  if(authLoading)return;
+  authLoading=true;$('connect').disabled=true;
+  const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;
+  const timer=setTimeout(()=>finish(false),15000);
+  let finished=false;
+  function finish(ok){if(finished)return;finished=true;clearTimeout(timer);authLoading=false;$('connect').disabled=false;
+    if(ok&&window.google?.accounts?.oauth2)authMessage('พร้อมเชื่อมต่อ กดปุ่มเข้าสู่ระบบ Google');
+    else {script.remove();authMessage('โหลดบริการ Google ไม่สำเร็จ ลองกดอีกครั้ง หรือเปิดเว็บนี้ใน Chrome / Edge');}
+  }
+  script.onload=()=>finish(true);script.onerror=()=>finish(false);document.head.append(script);
+}
+$('connect').onclick=()=>{
+  if(!window.google?.accounts?.oauth2){loadGoogleIdentity();return;}
+  try{
+    const client_id=$('clientId').value.trim();
+    if(!client_id.endsWith('.apps.googleusercontent.com'))throw Error('Client ID ไม่ถูกต้อง');
+    authMessage('กำลังเปิดหน้าต่าง Google หากไม่ปรากฏ ให้ตรวจการบล็อกป๊อปอัปข้างแถบที่อยู่เว็บ');
+    google.accounts.oauth2.initTokenClient({client_id,scope:'https://www.googleapis.com/auth/spreadsheets.readonly',
+      error_callback:e=>authMessage(e.type==='popup_failed_to_open'?'เปิดหน้าต่าง Google ไม่ได้ กรุณาอนุญาตป๊อปอัปสำหรับเว็บนี้ หรือเปิดด้วย Chrome / Edge':e.type==='popup_closed'?'ปิดหน้าต่างเข้าสู่ระบบแล้ว สามารถกดเข้าสู่ระบบใหม่ได้':'เข้าสู่ระบบไม่สำเร็จ กรุณาลองอีกครั้ง'),
+      callback:async r=>{
+        if(r.error||!r.access_token){authMessage('Google ไม่อนุญาตการเข้าสู่ระบบ: '+(r.error||'ไม่พบสิทธิ์เข้าถึง'));return;}
+        token=r.access_token;authMessage('เข้าสู่ระบบแล้ว กำลังอ่านข้อมูลจากชีต…');
+        try{await readGoogle();authStatus.textContent='เชื่อมต่อสำเร็จ · '+data.records.length+' รายการ · '+new Date().toLocaleString('th-TH');}
+        catch(e){authMessage(e.message||'อ่านข้อมูลไม่สำเร็จ');}
+      }
+    }).requestAccessToken();
+  }catch(e){authMessage(e.message);}
+};
+if(!window.google?.script?.run)loadGoogleIdentity();
 $('import').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>10*1024*1024)throw Error('ไฟล์ใหญ่เกิน 10 MB');const next=JSON.parse(await file.text());if(!next.updatedAt||Number.isNaN(Date.parse(next.updatedAt)))throw Error('ไม่มีวันที่อัปเดตที่ถูกต้อง');accept(next,'ข้อมูลจากไฟล์ที่นำเข้า');}catch(e){$('status').textContent='นำเข้าไม่สำเร็จ: '+e.message;}};
 $('export').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(source,null,2)],{type:'application/json'}));const a=element('a');a.href=u;a.download='staff-dashboard-data.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
 $('clientId').value=GOOGLE_CLIENT_ID;
