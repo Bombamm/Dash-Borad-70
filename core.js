@@ -11,18 +11,24 @@ function dateKey(value) {
   const dt=new Date(Date.UTC(y,m-1,d));
   return y>=2000&&y<=2100&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d?dt.toISOString().slice(0,10):null;
 }
-function normalize(sheets) {
+function normalize(sheets,headers) {
   const records=[];const warnings=[];
   for(const name of STAFF){
     if(!Array.isArray(sheets[name]))throw Error('ไม่พบข้อมูลชีต '+name);
+    const labels=['เลขที่โครงการ','รายการ','งบประมาณ','หมวดหมู่ประเภทงาน','วิธีการจัดจ้าง','วงเงินที่ตกลงจ้าง','ผู้รับจ้าง','เลขที่สัญญา/ใบสั่งจ้าง','จำนวนเงินที่ส่งการเงิน','วันที่ส่งการเงิน','วงเงินงบประมาณ'];
+    const positions=[1,3,4,5,6,7,8,9,15,16,17];
+    const clean=v=>String(v??'').replace(/\s/g,'');
+    const mapping=headers?labels.map(label=>(headers[name]||[]).findIndex(h=>clean(h)===clean(label))):null;
+    if(mapping?.some(i=>i<0))throw Error('หัวคอลัมน์ไม่ครบในชีต '+name+' กรุณาตรวจสอบก่อนแสดงยอด');
     sheets[name].forEach((r,i)=>{
       if(!Array.isArray(r))throw Error('ข้อมูลแถวไม่ถูกต้อง');
+      if(mapping){const original=r;r=Array(18).fill('');mapping.forEach((col,k)=>r[positions[k]]=original[col]??'');}
       const str=j=>String(r[j]??'').trim();
       if(![1,2,3,4,5,6,7,8,9,13,14,15].some(j=>str(j)))return;
       const amount=j=>{if(!str(j))return 0;const n=typeof r[j]==='number'?r[j]:Number(str(j).replace(/,/g,''));if(!Number.isFinite(n)||n<0){warnings.push(`${name} แถว ${i+5}: จำนวนเงินไม่ถูกต้อง`);return 0;}return n;};
       const paid=amount(15),date=dateKey(r[16]);
       if(paid&&!date)warnings.push(`${name} แถว ${i+5}: มียอดส่งการเงิน แต่ไม่มีวันที่ที่ใช้แยกเดือนได้`);
-      records.push({staff:name,row:i+5,project:str(1),title:str(3),budget:str(4)||'ไม่ระบุ',category:str(5)||'ไม่ระบุ',method:str(6)||'ไม่ระบุ',agreed:amount(7),contract:str(9),paid,date});
+      records.push({staff:name,row:i+5,project:str(1),title:str(3),budget:str(4)||'ไม่ระบุ',category:str(5)||'ไม่ระบุ',method:str(6)||'ไม่ระบุ',allocated:amount(17),vendor:str(8),agreed:amount(7),contract:str(9),paid,date});
     });
   }
   return {records,warnings};
@@ -30,11 +36,11 @@ function normalize(sheets) {
 function summarize(records,staff='ทั้งหมด',month='ทั้งหมด') {
   const rows=records.filter(r=>staff==='ทั้งหมด'||r.staff===staff);
   const unique=new Map(),conflicts=[];
-  for(const r of rows){const k=r.contract?r.contract.replace(/\s+/g,'').toLowerCase():`${r.staff}:${r.row}`;if(!unique.has(k))unique.set(k,r);else if(unique.get(k).agreed!==r.agreed)conflicts.push(r.contract);}
+  for(const r of rows){const k=r.contract?r.contract.replace(/\s+/g,'').toLowerCase():`${r.staff}:${r.row}`;if(!unique.has(k))unique.set(k,r);else if((unique.get(k).agreed!==r.agreed||unique.get(k).allocated!==r.allocated))conflicts.push(r.contract);}
   const contracts=[...unique.values()];
   const paymentRows=rows.filter(r=>month==='ทั้งหมด'||(month==='ไม่ระบุเดือน'?!r.date:r.date?.slice(0,7)===month));
   const group=(key)=>Object.entries(contracts.reduce((a,r)=>(a[r[key]]=(a[r[key]]||0)+r.agreed,a),{})).sort((a,b)=>b[1]-a[1]);
   const payBy=STAFF.map(s=>[s,paymentRows.filter(r=>r.staff===s).reduce((a,r)=>a+r.paid,0)]);
-  return {rows,contracts,conflicts,agreed:contracts.reduce((a,r)=>a+r.agreed,0),count:contracts.filter(r=>r.contract).length,paid:paymentRows.reduce((a,r)=>a+r.paid,0),unknown:rows.filter(r=>!r.date).reduce((a,r)=>a+r.paid,0),budget:group('budget'),category:group('category'),method:group('method'),payBy};
+  return {rows,contracts,conflicts,allocated:contracts.reduce((a,r)=>a+(r.allocated||0),0),agreed:contracts.reduce((a,r)=>a+r.agreed,0),count:contracts.filter(r=>r.contract).length,paid:paymentRows.reduce((a,r)=>a+r.paid,0),unknown:rows.filter(r=>!r.date).reduce((a,r)=>a+r.paid,0),budget:group('budget'),category:group('category'),method:group('method'),payBy};
 }
 if(typeof module!=='undefined')module.exports={STAFF,dateKey,normalize,summarize};
