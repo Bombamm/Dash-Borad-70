@@ -25,8 +25,68 @@ function renderFinance(){
  root.append(list);if(!total)root.append(element('p','ยังไม่มียอดส่งการเงินในช่วงที่เลือก','finance-note'));
 }
 
+
+function financeMonths(){
+ return snapshot.months.filter(m=>m!=='ทั้งหมด'&&m!=='ไม่ระบุเดือน').sort();
+}
+function renderMonthlyOverview(){
+ if(!snapshot)return;
+ const months=financeMonths();
+ const staff=['บ๋อมแบ๋ม','ส้ม','ดรีม','นุ้ย','หนุ่ม'];
+ const totals=months.map(m=>Number(snapshot.views['ทั้งหมด']?.[m]?.paid||0));
+ const max=Math.max(1,...totals);
+ const bars=$('monthlyBars');
+ bars.replaceChildren();
+ if(!months.length)bars.append(element('p','ยังไม่มีวันที่ส่งการเงินที่ใช้สรุปรายเดือนได้','finance-note'));
+ months.forEach((m,i)=>{
+  const item=element('button',undefined,'month-bar');
+  item.type='button';
+  item.title=monthLabel(m)+' · '+fmt(totals[i])+' บาท';
+  item.setAttribute('aria-label',item.title);
+  const value=element('strong',fmt(totals[i]));
+  const track=element('span',undefined,'month-track');
+  const fill=element('i');
+  fill.style.height=(totals[i]/max*100)+'%';
+  track.append(fill);
+  item.append(value,track,element('small',monthLabel(m)));
+  item.onclick=()=>{
+   $('financeMonth').value=m;
+   renderFinance();
+   document.getElementById('finance').scrollIntoView({behavior:'smooth'});
+  };
+  bars.append(item);
+ });
+ const head=$('matrixHead');
+ const body=$('matrixBody');
+ head.replaceChildren();
+ body.replaceChildren();
+ const hr=element('tr');
+ hr.append(element('th','เจ้าหน้าที่'));
+ months.forEach(m=>hr.append(element('th',monthLabel(m))));
+ hr.append(element('th','รวม'));
+ head.append(hr);
+ staff.forEach(name=>{
+  const tr=element('tr');
+  tr.append(element('th',name));
+  let total=0;
+  months.forEach(m=>{
+   const view=snapshot.views[name]?.[m];
+   const value=Number(view?.paid||0);
+   total+=value;
+   tr.append(element('td',fmt(value)));
+  });
+  tr.append(element('td',fmt(total)));
+  body.append(tr);
+ });
+ const totalRow=element('tr',undefined,'matrix-total');
+ totalRow.append(element('th','รวมทั้ง 5 คน'));
+ totals.forEach(value=>totalRow.append(element('td',fmt(value))));
+ totalRow.append(element('td',fmt(totals.reduce((sum,value)=>sum+value,0))));
+ body.append(totalRow);
+}
+
 function done(){pending=false;clearTimeout(timer);script?.remove();$('refresh').disabled=false;}
-window.receivePublicDashboard=function(next){done();if(next.error||next.version!==1){$('status').textContent='อัปเดตไม่สำเร็จ ข้อมูลเดิมอาจยังไม่ใช่ข้อมูลล่าสุด';return;}snapshot=next;for(const id of ['month','financeMonth']){const old=$(id).value;$(id).replaceChildren(...next.months.map(m=>{const o=element('option',monthLabel(m));o.value=m;return o;}));$(id).value=next.months.includes(old)?old:'ทั้งหมด';}$('sourceLabel').textContent='ข้อมูลสรุปสาธารณะ';$('status').textContent='ข้อมูล ณ '+new Date(next.updatedAt).toLocaleString('th-TH')+' · อัปเดตทุก 5 นาที';render();};
+window.receivePublicDashboard=function(next){done();if(next.error||next.version!==1){$('status').textContent='อัปเดตไม่สำเร็จ ข้อมูลเดิมอาจยังไม่ใช่ข้อมูลล่าสุด';return;}snapshot=next;for(const id of ['month','financeMonth']){const old=$(id).value;$(id).replaceChildren(...next.months.map(m=>{const o=element('option',monthLabel(m));o.value=m;return o;}));$(id).value=next.months.includes(old)?old:'ทั้งหมด';}$('sourceLabel').textContent='ข้อมูลสรุปสาธารณะ';$('status').textContent='ข้อมูล ณ '+new Date(next.updatedAt).toLocaleString('th-TH')+' · อัปเดตทุก 5 นาที';render();renderMonthlyOverview();};
 function refresh(){if(pending)return;if(!window.PUBLIC_SUMMARY_URL){$('status').textContent='กำลังตั้งค่าการเชื่อมต่อข้อมูลสาธารณะ';return;}pending=true;$('refresh').disabled=true;script=document.createElement('script');script.src=window.PUBLIC_SUMMARY_URL+'?t='+Date.now();script.onerror=()=>{done();$('status').textContent='อ่านข้อมูลไม่สำเร็จ กรุณาลองอัปเดตอีกครั้ง';};timer=setTimeout(()=>{done();$('status').textContent='การอัปเดตใช้เวลานาน กรุณาลองใหม่';},90000);document.head.append(script);}
 $('financeMonth').onchange=renderFinance;$('staff').onchange=render;$('month').onchange=render;$('categoryFilter').onchange=render;$('refresh').onclick=refresh;refresh();setInterval(()=>{if(!document.hidden)refresh();},300000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 
