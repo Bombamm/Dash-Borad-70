@@ -15,20 +15,21 @@ function normalize(sheets,headers) {
   const records=[];const warnings=[];
   for(const name of STAFF){
     if(!Array.isArray(sheets[name]))throw Error('ไม่พบข้อมูลชีต '+name);
-    const labels=['เลขที่โครงการ','รายการ','งบประมาณ','หมวดหมู่ประเภทงาน','วิธีการจัดจ้าง','วงเงินที่ตกลงจ้าง','ผู้รับจ้าง','เลขที่สัญญา/ใบสั่งจ้าง','จำนวนเงินที่ส่งการเงิน','วันที่ส่งการเงิน','วงเงินงบประมาณ'];
-    const positions=[1,3,4,5,6,7,8,9,15,16,17];
+    const labels=['เลขที่โครงการ','รายการ','งบประมาณ','หมวดหมู่ประเภทงาน','วิธีการจัดจ้าง','วงเงินที่ตกลงจ้าง','ผู้รับจ้าง','เลขที่สัญญา/ใบสั่งจ้าง','จำนวนเงินที่ส่งการเงิน','วันที่ส่งการเงิน','วงเงินงบประมาณ','สถานะ','วันที่'];
+    const positions=[1,3,4,5,6,7,8,9,15,16,17,18,19];
     const clean=v=>String(v??'').replace(/\s/g,'');
     const mapping=headers?labels.map(label=>(headers[name]||[]).findIndex(h=>clean(h)===clean(label))):null;
     if(mapping?.some(i=>i<0))throw Error('หัวคอลัมน์ไม่ครบในชีต '+name+' กรุณาตรวจสอบก่อนแสดงยอด');
     sheets[name].forEach((r,i)=>{
       if(!Array.isArray(r))throw Error('ข้อมูลแถวไม่ถูกต้อง');
-      if(mapping){const original=r;r=Array(18).fill('');mapping.forEach((col,k)=>r[positions[k]]=original[col]??'');}
+      if(mapping){const original=r;r=Array(20).fill('');mapping.forEach((col,k)=>r[positions[k]]=original[col]??'');}
       const str=j=>String(r[j]??'').trim();
       if(![1,2,3,4,5,6,7,8,9,13,14,15].some(j=>str(j)))return;
       const amount=j=>{if(!str(j))return 0;const n=typeof r[j]==='number'?r[j]:Number(str(j).replace(/,/g,''));if(!Number.isFinite(n)||n<0){warnings.push(`${name} แถว ${i+5}: จำนวนเงินไม่ถูกต้อง`);return 0;}return n;};
-      const paid=amount(15),date=dateKey(r[16]);
+      const status=str(18).replace(/\s/g,'');if(status==='ยกเลิก')return;
+      const paid=amount(15),date=dateKey(r[16]),issuedDate=dateKey(r[19]);
       if(paid&&!date)warnings.push(`${name} แถว ${i+5}: มียอดส่งการเงิน แต่ไม่มีวันที่ที่ใช้แยกเดือนได้`);
-      records.push({staff:name,row:i+5,project:str(1),title:str(3),budget:str(4)||'ไม่ระบุ',category:str(5)||'ไม่ระบุ',method:str(6)||'ไม่ระบุ',allocated:amount(17),vendor:str(8),agreed:amount(7),contract:str(9),paid,date});
+      records.push({staff:name,row:i+5,project:str(1),title:str(3),budget:str(4)||'ไม่ระบุ',category:str(5)||'ไม่ระบุ',method:str(6)||'ไม่ระบุ',allocated:amount(17),vendor:str(8),agreed:amount(7),contract:str(9),status,issuedDate,paid,date});
     });
   }
   return {records,warnings};
