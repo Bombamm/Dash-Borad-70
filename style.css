@@ -41,3 +41,19 @@ html{scroll-padding-top:112px}
 #orders .finance-donut{justify-self:center}
 @media(max-width:900px){#orders .finance-summary{grid-template-columns:1fr}.order-breakdowns{grid-template-columns:1fr}}
 @media(max-width:650px){.order-group{padding:12px}.ring-count{font-size:11px}}
+
+/* Spacious purchase order layout */
+#orders .finance-summary{display:flex;flex-direction:column;align-items:center;gap:28px}
+#orders .order-breakdowns{width:100%;display:flex;flex-direction:column;gap:16px}
+#orders .order-group{width:100%;box-sizing:border-box;padding:18px 22px;background:linear-gradient(180deg,#fff,#fbfdff)}
+#orders .order-group h3{padding-bottom:12px;border-bottom:1px solid #e7edf5;font-size:17px}
+#orders .order-group .finance-person{grid-template-columns:minmax(220px,1fr) minmax(140px,auto) 80px;padding:14px 4px}
+#orders .finance-donut{width:230px;height:230px}
+#orders .finance-hole{width:180px;height:180px}
+@media(max-width:650px){
+ #orders .order-group{padding:14px}
+ #orders .order-group .finance-person{grid-template-columns:minmax(0,1fr) auto;align-items:start}
+ #orders .order-group .finance-person small{grid-column:2}
+ #orders .finance-donut{width:200px;height:200px}
+ #orders .finance-hole{width:156px;height:156px}
+}
