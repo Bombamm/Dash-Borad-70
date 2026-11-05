@@ -57,7 +57,7 @@ function publicUnique_(rows){
 function publicGroup_(contracts,key,amountKey){
   amountKey=amountKey||'agreed';
   var grouped={};contracts.forEach(function(row){grouped[row[key]]=(grouped[row[key]]||0)+row[amountKey];});
-  return Object.keys(grouped).map(function(k){return [k,grouped[k]];}).sort(function(a,b){return b[1]-a[1];});
+  return Object.keys(grouped).map(function(k){return [k,grouped[k],contracts.filter(function(row){return row[key]===k&&!!row.contract;}).length];}).sort(function(a,b){return b[1]-a[1];});
 }
 function publicSummaryView_(records,staff,month){
   var rows=records.filter(function(row){return staff==='ทั้งหมด'||row.staff===staff;}),contracts=publicUnique_(rows);
@@ -66,7 +66,7 @@ function publicSummaryView_(records,staff,month){
     allocated:contracts.reduce(function(s,r){return s+r.allocated;},0),agreed:contracts.reduce(function(s,r){return s+r.agreed;},0),
     count:contracts.filter(function(r){return !!r.contract;}).length,paid:payments.reduce(function(s,r){return s+r.paid;},0),
     unknown:rows.filter(function(r){return !r.paidDate;}).reduce(function(s,r){return s+r.paid;},0),
-    budget:publicGroup_(contracts,'budget','allocated'),category:publicGroup_(contracts,'category','agreed'),method:publicGroup_(contracts,'method','agreed'),
+    budget:publicGroup_(contracts,'budget','allocated'),category:publicGroup_(contracts,'category','allocated'),method:publicGroup_(contracts,'method','allocated'),
     payBy:PUBLIC_STAFF.map(function(name){return [name,payments.filter(function(r){return r.staff===name;}).reduce(function(s,r){return s+r.paid;},0)];})
   };
 }
@@ -74,7 +74,8 @@ function publicOrderView_(records,staff,month){
   var rows=publicUnique_(records.filter(function(row){return (staff==='ทั้งหมด'||row.staff===staff)&&row.contract;}));
   rows=rows.filter(function(row){return month==='ทั้งหมด'||(month==='ไม่ระบุเดือน'?!row.issueDate:row.issueDate&&row.issueDate.slice(0,7)===month);});
   return {amount:rows.reduce(function(s,r){return s+r.agreed;},0),count:rows.length,
-    byStaff:PUBLIC_STAFF.map(function(name){var part=rows.filter(function(r){return r.staff===name;});return [name,part.reduce(function(s,r){return s+r.agreed;},0),part.length];})};
+    byStaff:PUBLIC_STAFF.map(function(name){var part=rows.filter(function(r){return r.staff===name;});return [name,part.reduce(function(s,r){return s+r.agreed;},0),part.length];}),
+    byMethod:publicGroup_(rows,'method','agreed'),byCategory:publicGroup_(rows,'category','agreed')};
 }
 function publicPayload_(){
   var records=publicRead_();
@@ -85,15 +86,15 @@ function publicPayload_(){
     views[staff]={};months.forEach(function(month){views[staff][month]=publicSummaryView_(records,staff,month);});
     orders[staff]={};orderMonths.forEach(function(month){orders[staff][month]=publicOrderView_(records,staff,month);});
   });
-  return {version:2,updatedAt:new Date().toISOString(),months:months,orderMonths:orderMonths,views:views,orders:orders};
+  return {version:3,updatedAt:new Date().toISOString(),months:months,orderMonths:orderMonths,views:views,orders:orders};
 }
 function doGet(){
   var payload;
   try{
-    var cache=CacheService.getScriptCache(),cached=cache.get('public-v2');
+    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3');
     payload=cached?JSON.parse(cached):publicPayload_();
-    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v2',json,60);}
-  }catch(error){payload={version:2,error:'ไม่สามารถอัปเดตข้อมูลได้ในขณะนี้'};}
+    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3',json,60);}
+  }catch(error){payload={version:3,error:'ไม่สามารถอัปเดตข้อมูลได้ในขณะนี้'};}
   return ContentService.createTextOutput('receivePublicDashboard('+JSON.stringify(payload)+');').setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 function checkSummary(){var result=publicPayload_();if(result.version!==2)throw new Error('รุ่นข้อมูลไม่ถูกต้อง');return {updatedAt:result.updatedAt,months:result.months.length,orderMonths:result.orderMonths.length};}
