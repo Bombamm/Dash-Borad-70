@@ -54,8 +54,9 @@ function publicUnique_(rows){
   rows.forEach(function(row){var key=row.contract?row.contract.replace(/\s+/g,'').toLowerCase():row.staff+':'+row.row;if(!unique[key])unique[key]=row;});
   return Object.keys(unique).map(function(key){return unique[key];});
 }
-function publicGroup_(contracts,key){
-  var grouped={};contracts.forEach(function(row){grouped[row[key]]=(grouped[row[key]]||0)+row.agreed;});
+function publicGroup_(contracts,key,amountKey){
+  amountKey=amountKey||'agreed';
+  var grouped={};contracts.forEach(function(row){grouped[row[key]]=(grouped[row[key]]||0)+row[amountKey];});
   return Object.keys(grouped).map(function(k){return [k,grouped[k]];}).sort(function(a,b){return b[1]-a[1];});
 }
 function publicSummaryView_(records,staff,month){
@@ -65,7 +66,7 @@ function publicSummaryView_(records,staff,month){
     allocated:contracts.reduce(function(s,r){return s+r.allocated;},0),agreed:contracts.reduce(function(s,r){return s+r.agreed;},0),
     count:contracts.filter(function(r){return !!r.contract;}).length,paid:payments.reduce(function(s,r){return s+r.paid;},0),
     unknown:rows.filter(function(r){return !r.paidDate;}).reduce(function(s,r){return s+r.paid;},0),
-    budget:publicGroup_(contracts,'budget'),category:publicGroup_(contracts,'category'),method:publicGroup_(contracts,'method'),
+    budget:publicGroup_(contracts,'budget','allocated'),category:publicGroup_(contracts,'category','agreed'),method:publicGroup_(contracts,'method','agreed'),
     payBy:PUBLIC_STAFF.map(function(name){return [name,payments.filter(function(r){return r.staff===name;}).reduce(function(s,r){return s+r.paid;},0)];})
   };
 }
