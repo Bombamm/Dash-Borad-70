@@ -63,6 +63,10 @@ function publicGroup_(contracts,key,amountKey){
   var grouped={};contracts.forEach(function(row){grouped[row[key]]=(grouped[row[key]]||0)+row[amountKey];});
   return Object.keys(grouped).map(function(k){return [k,grouped[k],contracts.filter(function(row){return row[key]===k&&!!row.contract;}).length];}).sort(function(a,b){return b[1]-a[1];});
 }
+function publicPaymentGroup_(rows,key){
+  var grouped={};rows.forEach(function(row){grouped[row[key]]=(grouped[row[key]]||0)+row.paid;});
+  return Object.keys(grouped).filter(function(k){return grouped[k]>0;}).map(function(k){return [k,grouped[k]];}).sort(function(a,b){return b[1]-a[1];});
+}
 function publicSummaryView_(records,staff,month){
   var rows=records.filter(function(row){return staff==='ทั้งหมด'||row.staff===staff;}),contracts=publicUnique_(rows);
   var payments=rows.filter(function(row){return month==='ทั้งหมด'||(month==='ไม่ระบุเดือน'?!row.paidDate:row.paidDate&&row.paidDate.slice(0,7)===month);});
@@ -71,7 +75,8 @@ function publicSummaryView_(records,staff,month){
     count:contracts.filter(function(r){return !!r.contract;}).length,paid:payments.reduce(function(s,r){return s+r.paid;},0),
     unknown:rows.filter(function(r){return !r.paidDate;}).reduce(function(s,r){return s+r.paid;},0),
     budget:publicGroup_(contracts,'budget','allocated'),category:publicGroup_(contracts,'category','allocated'),method:publicGroup_(contracts,'method','allocated'),
-    payBy:PUBLIC_STAFF.map(function(name){return [name,payments.filter(function(r){return r.staff===name;}).reduce(function(s,r){return s+r.paid;},0)];})
+    payBy:PUBLIC_STAFF.map(function(name){return [name,payments.filter(function(r){return r.staff===name;}).reduce(function(s,r){return s+r.paid;},0)];}),
+    payByCategory:publicPaymentGroup_(payments,'category')
   };
 }
 function publicOrderView_(records,staff,month){
@@ -95,9 +100,9 @@ function publicPayload_(){
 function doGet(){
   var payload;
   try{
-    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3-dropdown-pc204');
+    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3-finance-category');
     payload=cached?JSON.parse(cached):publicPayload_();
-    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3-dropdown-pc204',json,60);}
+    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3-finance-category',json,60);}
   }catch(error){payload={version:3,error:'ไม่สามารถอัปเดตข้อมูลได้ในขณะนี้'};}
   return ContentService.createTextOutput('receivePublicDashboard('+JSON.stringify(payload)+');').setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
