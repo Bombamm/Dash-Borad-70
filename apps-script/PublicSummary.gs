@@ -21,6 +21,10 @@ function publicDate_(value){
   var dt=new Date(Date.UTC(y,m-1,d));
   return y>=2000&&y<=2100&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d?dt.toISOString().slice(0,10):null;
 }
+function publicCategory_(value){
+  var category=String(value||'ไม่ระบุ').trim()||'ไม่ระบุ';
+  return category.replace(/^PC\.20\.4(?=\s|$)/,'70.20.4');
+}
 function publicRead_(){
   var ranges=PUBLIC_STAFF.map(function(name){return "'"+name+"'!A4:AC";});
   var result=Sheets.Spreadsheets.get(PUBLIC_SOURCE_ID,{ranges:ranges,includeGridData:true,fields:'sheets(properties(title),data(rowData(values(userEnteredValue,effectiveValue,formattedValue))))'});
@@ -41,7 +45,7 @@ function publicRead_(){
       var amount=function(label){var value=get(label);if(value===''||value==null)return 0;var n=typeof value==='number'?value:Number(String(value).replace(/,/g,''));return Number.isFinite(n)&&n>=0?n:0;};
       records.push({
         staff:name,row:rowIndex+5,title:title,budget:String(get('งบประมาณ')||'ไม่ระบุ').trim()||'ไม่ระบุ',
-        category:String(get('หมวดหมู่ประเภทงาน')||'ไม่ระบุ').trim()||'ไม่ระบุ',method:String(get('วิธีการจัดจ้าง')||'ไม่ระบุ').trim()||'ไม่ระบุ',
+        category:publicCategory_(get('หมวดหมู่ประเภทงาน')),method:String(get('วิธีการจัดจ้าง')||'ไม่ระบุ').trim()||'ไม่ระบุ',
         allocated:amount('วงเงินงบประมาณ'),agreed:amount('วงเงินที่ตกลงจ้าง'),contract:contract,
         issueDate:publicDate_(get('วันที่')),paid:amount('จำนวนเงินที่ส่งการเงิน'),paidDate:publicDate_(get('วันที่ส่งการเงิน'))
       });
@@ -91,9 +95,9 @@ function publicPayload_(){
 function doGet(){
   var payload;
   try{
-    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3');
+    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3-dropdown');
     payload=cached?JSON.parse(cached):publicPayload_();
-    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3',json,60);}
+    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3-dropdown',json,60);}
   }catch(error){payload={version:3,error:'ไม่สามารถอัปเดตข้อมูลได้ในขณะนี้'};}
   return ContentService.createTextOutput('receivePublicDashboard('+JSON.stringify(payload)+');').setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
