@@ -23,7 +23,7 @@ function publicDate_(value){
 }
 function publicCategory_(value){
   var category=String(value||'ไม่ระบุ').trim()||'ไม่ระบุ';
-  return category.replace(/^PC\.20\.4(?=\s|$)/,'70.20.4');
+  return category.replace(/^70\.20\.4(?=\s|$)/,'PC.20.4');
 }
 function publicRead_(){
   var ranges=PUBLIC_STAFF.map(function(name){return "'"+name+"'!A4:AC";});
@@ -95,9 +95,9 @@ function publicPayload_(){
 function doGet(){
   var payload;
   try{
-    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3-dropdown');
+    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3-dropdown-pc204');
     payload=cached?JSON.parse(cached):publicPayload_();
-    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3-dropdown',json,60);}
+    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3-dropdown-pc204',json,60);}
   }catch(error){payload={version:3,error:'ไม่สามารถอัปเดตข้อมูลได้ในขณะนี้'};}
   return ContentService.createTextOutput('receivePublicDashboard('+JSON.stringify(payload)+');').setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
