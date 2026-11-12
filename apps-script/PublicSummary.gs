@@ -10,16 +10,22 @@ function publicCell_(cell,header){
   return value.numberValue==null?(value.stringValue||cell.formattedValue||''):value.numberValue;
 }
 function publicDate_(value){
+  var y,m,d,dt,match;
   if(typeof value==='number'){
-    if(value<36526||value>73415)return null;
-    return new Date(Date.UTC(1899,11,30)+Math.floor(value)*86400000).toISOString().slice(0,10);
+    if(!isFinite(value)||value<1||value>400000)return null;
+    dt=new Date(Date.UTC(1899,11,30)+Math.floor(value)*86400000);
+    y=dt.getUTCFullYear();m=dt.getUTCMonth()+1;d=dt.getUTCDate();
+    if(y>=2400&&y<=2700)y-=543;
+  }else{
+    if(typeof value!=='string'||!value.trim())return null;
+    match=value.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(match){y=Number(match[1]);m=Number(match[2]);d=Number(match[3]);}
+    else {match=value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);if(!match)return null;d=Number(match[1]);m=Number(match[2]);y=Number(match[3]);}
+    if(y<100)y+=1957;
+    else if(y>=2400&&y<=2700)y-=543;
   }
-  if(typeof value!=='string'||!value.trim())return null;
-  var match=value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/),y,m,d;
-  if(match){y=Number(match[1]);m=Number(match[2]);d=Number(match[3]);}
-  else {match=value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!match)return null;d=Number(match[1]);m=Number(match[2]);y=Number(match[3]);if(y>2400)y-=543;}
-  var dt=new Date(Date.UTC(y,m-1,d));
-  return y>=2000&&y<=2100&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d?dt.toISOString().slice(0,10):null;
+  dt=new Date(Date.UTC(y,m-1,d));
+  return y>=2000&&y<=2100&&dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d?dt.toISOString().slice(0,10):null;
 }
 function publicCategory_(value){
   var category=String(value||'ไม่ระบุ').trim()||'ไม่ระบุ';
@@ -100,9 +106,9 @@ function publicPayload_(){
 function doGet(){
   var payload;
   try{
-    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3-finance-category');
+    var cache=CacheService.getScriptCache(),cached=cache.get('public-v3-date-v8');
     payload=cached?JSON.parse(cached):publicPayload_();
-    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3-finance-category',json,60);}
+    if(!cached){var json=JSON.stringify(payload);if(json.length<90000)cache.put('public-v3-date-v8',json,60);}
   }catch(error){payload={version:3,error:'ไม่สามารถอัปเดตข้อมูลได้ในขณะนี้'};}
   return ContentService.createTextOutput('receivePublicDashboard('+JSON.stringify(payload)+');').setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
