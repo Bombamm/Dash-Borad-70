@@ -1,15 +1,21 @@
 const STAFF = ['บ๋อมแบ๋ม','ส้ม','ดรีม','นุ้ย','หนุ่ม'];
 function dateKey(value) {
+  let y,m,d,match,dt;
   if (typeof value === 'number') {
-    if (value < 36526 || value > 73415) return null;
-    return new Date(Date.UTC(1899,11,30)+Math.floor(value)*86400000).toISOString().slice(0,10);
+    if(!Number.isFinite(value)||value<1||value>400000)return null;
+    dt=new Date(Date.UTC(1899,11,30)+Math.floor(value)*86400000);
+    y=dt.getUTCFullYear();m=dt.getUTCMonth()+1;d=dt.getUTCDate();
+    if(y>=2400&&y<=2700)y-=543;
+  } else {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    match=value.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(match)[,y,m,d]=match.map(Number);
+    else {match=value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);if(!match)return null;[,d,m,y]=match.map(Number);}
+    if(y<100)y+=1957;
+    else if(y>=2400&&y<=2700)y-=543;
   }
-  if (typeof value !== 'string' || !value.trim()) return null;
-  let y,m,d,match=value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(match) [,y,m,d]=match.map(Number);
-  else {match=value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!match)return null;[,d,m,y]=match.map(Number);if(y>2400)y-=543;}
-  const dt=new Date(Date.UTC(y,m-1,d));
-  return y>=2000&&y<=2100&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d?dt.toISOString().slice(0,10):null;
+  dt=new Date(Date.UTC(y,m-1,d));
+  return y>=2000&&y<=2100&&dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d?dt.toISOString().slice(0,10):null;
 }
 function normalize(sheets,headers) {
   const records=[];const warnings=[];
