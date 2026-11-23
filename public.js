@@ -18,6 +18,7 @@ function workGroup(name){
  const code=name.trim().match(/^PC[.\s]*(\d+(?:\.\d+)*)(?=\s|$)/i)?.[1];
  const key=['20.2.3','20.2','20.1','20.3','20.4','20.5','23']
    .find(prefix=>code===prefix||code?.startsWith(prefix+'.'));
+ if(name.trim()==='เงินบริจาค')return 'เงินบริจาค';
  return workGroups[key]||(name.trim()==='นอกแผน'?'นอกแผน':'อื่น ๆ / ไม่ระบุ');
 }
 function renderWorkCategories(rows,total){
@@ -30,7 +31,7 @@ function renderWorkCategories(rows,total){
    entry.rows.push([name,Number(value||0),count]);
  }
  const filter=$('categoryFilter'),selected=filter.value;
- const ordered=[...Object.values(workGroups),'นอกแผน','อื่น ๆ / ไม่ระบุ'].filter(name=>groups.has(name));
+ const ordered=[...Object.values(workGroups),'เงินบริจาค','นอกแผน','อื่น ๆ / ไม่ระบุ'].filter(name=>groups.has(name));
  filter.replaceChildren(...['',...ordered].map(name=>{
    const option=element('option',name||'ทุกประเภทงาน');
    option.value=name;
