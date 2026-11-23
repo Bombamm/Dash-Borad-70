@@ -27,14 +27,19 @@ function workGroup(name){
 function renderWorkCategories(rows,total){
  const groups=new Map();
  for(const [name,value,count] of rows){
-   const group=workGroup(name);
+   const label=name.trim()==='งบศูนย์แพททย์'?'งบศูนย์แพทย์':name;
+   const group=label==='งบศูนย์แพทย์'?label:workGroup(label);
    if(!groups.has(group))groups.set(group,{amount:0,rows:[]});
    const entry=groups.get(group);
    entry.amount+=Number(value||0);
-   entry.rows.push([name,Number(value||0),count]);
+   const existing=label==='งบศูนย์แพทย์'&&entry.rows[0];
+   if(existing){
+     existing[1]+=Number(value||0);
+     existing[2]+=Number(count||0);
+   }else entry.rows.push([label,Number(value||0),Number(count||0)]);
  }
  const filter=$('categoryFilter'),selected=filter.value;
- const ordered=[...Object.values(workGroups),'เงินบริจาค','นอกแผน','อื่น ๆ / ไม่ระบุ'].filter(name=>groups.has(name));
+ const ordered=[...Object.values(workGroups),'งบศูนย์แพทย์','เงินบริจาค','นอกแผน','อื่น ๆ / ไม่ระบุ'].filter(name=>groups.has(name));
  filter.replaceChildren(...['',...ordered].map(name=>{
    const option=element('option',name||'ทุกประเภทงาน');
    option.value=name;
