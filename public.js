@@ -14,8 +14,11 @@ const workGroups={
  '20.5':'PC20.5 งบกลาง (กรณี ฉุกเฉิน จำเป็น เร่งด่วน)',
  '23':'PC 23',
 };
+function workCode(name){
+ return name.trim().match(/^PC[.\s]*(\d+(?:\.\d+)*)(?=\s|$)/i)?.[1];
+}
 function workGroup(name){
- const code=name.trim().match(/^PC[.\s]*(\d+(?:\.\d+)*)(?=\s|$)/i)?.[1];
+ const code=workCode(name);
  const key=['20.2.3','20.2','20.1','20.3','20.4','20.5','23']
    .find(prefix=>code===prefix||code?.startsWith(prefix+'.'));
  if(name.trim()==='เงินบริจาค')return 'เงินบริจาค';
@@ -45,7 +48,18 @@ function renderWorkCategories(rows,total){
  details.style.width='100%';
  details.style.justifyItems='stretch';
  for(const name of visible){
-   const rows=groups.get(name).rows.slice().sort((a,b)=>b[1]-a[1]);
+   const rows=groups.get(name).rows.filter(([label])=>workCode(label)!=='20.2.2.4').map(row=>row.slice());
+   for(const [label,amount,count] of groups.get(name).rows){
+     if(workCode(label)!=='20.2.2.4')continue;
+     let parent=rows.find(([title])=>workCode(title)==='20.2.2');
+     if(!parent){
+       parent=['PC20.2.2 ปรุงรักษา ครุภัณฑ์ทางการแพทย์/ สำนักงาน และอื่นๆ',0,0];
+       rows.push(parent);
+     }
+     parent[1]+=amount;
+     parent[2]=Number(parent[2]||0)+Number(count||0);
+   }
+   rows.sort(([a],[b])=>(workCode(a)||'~').localeCompare(workCode(b)||'~','en',{numeric:true})||a.localeCompare(b,'th'));
    const card=orderGroup(name,rows,palettes.category);
    card.querySelector('.finance-breakdown').style.borderTop='1px solid #e7edf5';
    details.append(card);
