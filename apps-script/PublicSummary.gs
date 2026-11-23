@@ -48,7 +48,7 @@ function publicRead_(){
       (sheet.merges||[]).forEach(function(range){
         if(range.startColumnIndex!==column||range.endColumnIndex!==column+1||
            range.startRowIndex<4||range.endRowIndex-range.startRowIndex<2)return;
-        for(var row=range.startRowIndex+1;row<range.endRowIndex;row++)anchors[row]=range.startRowIndex;
+        for(var row=range.startRowIndex;row<range.endRowIndex;row++)anchors[row]=range.startRowIndex;
       });
       mergedCells[label]=anchors;
     });
@@ -67,7 +67,8 @@ function publicRead_(){
       records.push({
         staff:name,row:rowIndex+5,title:title,budget:String(get('งบประมาณ')||'ไม่ระบุ').trim()||'ไม่ระบุ',
         category:publicCategory_(get('หมวดหมู่ประเภทงาน')),method:String(get('วิธีการจัดจ้าง')||'ไม่ระบุ').trim()||'ไม่ระบุ',
-        allocated:amount('วงเงินงบประมาณ'),agreed:amount('วงเงินที่ตกลงจ้าง',!!contract),contract:contract,
+        allocated:amount('วงเงินงบประมาณ'),agreed:amount('วงเงินที่ตกลงจ้าง',true),contract:contract,
+        agreedMerge:mergedCells['วงเงินที่ตกลงจ้าง'][sheetRow],
         issueDate:publicDate_(get('วันที่',true)),paid:amount('จำนวนเงินที่ส่งการเงิน'),paidDate:publicDate_(get('วันที่ส่งการเงิน'))
       });
     });
@@ -79,10 +80,21 @@ function publicUnique_(rows){
   rows.forEach(function(row){var key=row.contract?row.contract.replace(/\s+/g,'').toLowerCase():row.staff+':'+row.row;if(!unique[key])unique[key]=row;});
   return Object.keys(unique).map(function(key){return unique[key];});
 }
-function publicGroup_(contracts,key,amountKey){
+function publicAgreedRows_(rows){
+  var seen=new Set();
+  return rows.filter(function(row){
+    var key=typeof row.agreedMerge==='number'?'merge:'+row.staff+':'+row.agreedMerge:
+      row.contract?'contract:'+row.contract.replace(/\s+/g,'').toLowerCase():null;
+    if(!key)return true;
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+function publicGroup_(contracts,key,amountKey,documents){
   amountKey=amountKey||'agreed';
   var grouped={};contracts.forEach(function(row){grouped[row[key]]=(grouped[row[key]]||0)+row[amountKey];});
-  return Object.keys(grouped).map(function(k){return [k,grouped[k],contracts.filter(function(row){return row[key]===k&&!!row.contract;}).length];}).sort(function(a,b){return b[1]-a[1];});
+  return Object.keys(grouped).map(function(k){return [k,grouped[k],(documents||contracts).filter(function(row){return row[key]===k&&!!row.contract;}).length];}).sort(function(a,b){return b[1]-a[1];});
 }
 function publicPaymentGroup_(rows,key){
   var grouped={};rows.forEach(function(row){grouped[row[key]]=(grouped[row[key]]||0)+row.paid;});
@@ -92,10 +104,10 @@ function publicSummaryView_(records,staff,month){
   var rows=records.filter(function(row){return staff==='ทั้งหมด'||row.staff===staff;}),contracts=publicUnique_(rows);
   var payments=rows.filter(function(row){return month==='ทั้งหมด'||(month==='ไม่ระบุเดือน'?!row.paidDate:row.paidDate&&row.paidDate.slice(0,7)===month);});
   return {
-    allocated:contracts.reduce(function(s,r){return s+r.allocated;},0),agreed:contracts.reduce(function(s,r){return s+r.agreed;},0),
+    allocated:rows.reduce(function(s,r){return s+r.allocated;},0),agreed:publicAgreedRows_(rows).reduce(function(s,r){return s+r.agreed;},0),
     count:contracts.filter(function(r){return !!r.contract;}).length,paid:payments.reduce(function(s,r){return s+r.paid;},0),
     unknown:rows.filter(function(r){return !r.paidDate;}).reduce(function(s,r){return s+r.paid;},0),
-    budget:publicGroup_(contracts,'budget','allocated'),category:publicGroup_(contracts,'category','allocated'),method:publicGroup_(contracts,'method','allocated'),
+    budget:publicGroup_(rows,'budget','allocated',contracts),category:publicGroup_(rows,'category','allocated',contracts),method:publicGroup_(rows,'method','allocated',contracts),
     payBy:PUBLIC_STAFF.map(function(name){return [name,payments.filter(function(r){return r.staff===name;}).reduce(function(s,r){return s+r.paid;},0)];}),
     payByCategory:publicPaymentGroup_(payments,'category')
   };
