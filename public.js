@@ -39,7 +39,7 @@ function renderWorkCategories(rows,total){
    }else entry.rows.push([label,Number(value||0),Number(count||0)]);
  }
  const filter=$('categoryFilter'),selected=filter.value;
- const ordered=[...Object.values(workGroups),'งบศูนย์แพทย์','เงินบริจาค','นอกแผน','อื่น ๆ / ไม่ระบุ'].filter(name=>groups.has(name));
+ const ordered=[...Object.keys(workGroups).sort((a,b)=>a.localeCompare(b,'en',{numeric:true})).map(code=>workGroups[code]),'งบศูนย์แพทย์','เงินบริจาค','นอกแผน','อื่น ๆ / ไม่ระบุ'].filter(name=>groups.has(name));
  filter.replaceChildren(...['',...ordered].map(name=>{
    const option=element('option',name||'ทุกประเภทงาน');
    option.value=name;
