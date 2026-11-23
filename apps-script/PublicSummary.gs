@@ -33,7 +33,7 @@ function publicCategory_(value){
 }
 function publicRead_(){
   var ranges=PUBLIC_STAFF.map(function(name){return "'"+name+"'!A4:AC";});
-  var result=Sheets.Spreadsheets.get(PUBLIC_SOURCE_ID,{ranges:ranges,includeGridData:true,fields:'sheets(properties(title),data(rowData(values(userEnteredValue,effectiveValue,formattedValue))))'});
+  var result=Sheets.Spreadsheets.get(PUBLIC_SOURCE_ID,{ranges:ranges,includeGridData:true,fields:'sheets(properties(title),merges,data(rowData(values(userEnteredValue,effectiveValue,formattedValue))))'});
   var records=[];
   (result.sheets||[]).forEach(function(sheet){
     var name=sheet.properties.title,rows=((sheet.data||[])[0]||{}).rowData||[];
@@ -42,18 +42,33 @@ function publicRead_(){
     var index={};
     ['รายการ','งบประมาณ','หมวดหมู่ประเภทงาน','วิธีการจัดจ้าง','วงเงินงบประมาณ','วงเงินที่ตกลงจ้าง','ผู้รับจ้าง','เลขที่สัญญา/ใบสั่งจ้าง','วันที่','สถานะ','จำนวนเงินที่ส่งการเงิน','วันที่ส่งการเงิน'].forEach(function(label){index[label]=headers.findIndex(function(h){return clean(h)===clean(label);});});
     if(Object.keys(index).some(function(k){return index[k]<0;}))throw new Error('หัวคอลัมน์ไม่ครบในชีต '+name);
+    var mergedCells={};
+    ['วงเงินที่ตกลงจ้าง','เลขที่สัญญา/ใบสั่งจ้าง','วันที่'].forEach(function(label){
+      var column=index[label], anchors={};
+      (sheet.merges||[]).forEach(function(range){
+        if(range.startColumnIndex!==column||range.endColumnIndex!==column+1||
+           range.startRowIndex<4||range.endRowIndex-range.startRowIndex<2)return;
+        for(var row=range.startRowIndex+1;row<range.endRowIndex;row++)anchors[row]=range.startRowIndex;
+      });
+      mergedCells[label]=anchors;
+    });
     rows.slice(1).forEach(function(row,rowIndex){
-      var cells=row.values||[],get=function(label){return publicCell_(cells[index[label]],headers[index[label]]);};
-      var title=String(get('รายการ')||'').trim(),contract=String(get('เลขที่สัญญา/ใบสั่งจ้าง')||'').trim();
-      if(!title&&!contract)return;
+      var cells=row.values||[], sheetRow=rowIndex+4;
+      var get=function(label, inherit){
+        var anchor=inherit&&mergedCells[label]&&mergedCells[label][sheetRow];
+        var source=typeof anchor==='number'?((rows[anchor-3]||{}).values||[]):cells;
+        return publicCell_(source[index[label]],headers[index[label]]);
+      };
+      var title=String(get('รายการ')||'').trim(),contract=String(get('เลขที่สัญญา/ใบสั่งจ้าง',true)||'').trim();
+      if(!title&&!get('เลขที่สัญญา/ใบสั่งจ้าง'))return;
       var status=String(get('สถานะ')||'').replace(/\s/g,'');
       if(status==='ยกเลิก')return;
-      var amount=function(label){var value=get(label);if(value===''||value==null)return 0;var n=typeof value==='number'?value:Number(String(value).replace(/,/g,''));return Number.isFinite(n)&&n>=0?n:0;};
+      var amount=function(label,inherit){var value=get(label,inherit);if(value===''||value==null)return 0;var n=typeof value==='number'?value:Number(String(value).replace(/,/g,''));return Number.isFinite(n)&&n>=0?n:0;};
       records.push({
         staff:name,row:rowIndex+5,title:title,budget:String(get('งบประมาณ')||'ไม่ระบุ').trim()||'ไม่ระบุ',
         category:publicCategory_(get('หมวดหมู่ประเภทงาน')),method:String(get('วิธีการจัดจ้าง')||'ไม่ระบุ').trim()||'ไม่ระบุ',
-        allocated:amount('วงเงินงบประมาณ'),agreed:amount('วงเงินที่ตกลงจ้าง'),contract:contract,
-        issueDate:publicDate_(get('วันที่')),paid:amount('จำนวนเงินที่ส่งการเงิน'),paidDate:publicDate_(get('วันที่ส่งการเงิน'))
+        allocated:amount('วงเงินงบประมาณ'),agreed:amount('วงเงินที่ตกลงจ้าง',!!contract),contract:contract,
+        issueDate:publicDate_(get('วันที่',true)),paid:amount('จำนวนเงินที่ส่งการเงิน'),paidDate:publicDate_(get('วันที่ส่งการเงิน'))
       });
     });
   });
