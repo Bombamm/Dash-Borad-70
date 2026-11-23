@@ -5,7 +5,58 @@ function monthLabel(m){return m==='ทั้งหมด'?'รวมทุกเ
 function element(tag,text,cls){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;}
 function rings(id,groups,total){const root=$(id);root.replaceChildren();const active=groups.filter(x=>x[1]>0);if(!active.length){const empty=element('div',undefined,'empty'),circle=element('div',undefined,'ring');circle.style.setProperty('--angle','0deg');circle.style.setProperty('--color','#197c69');const hole=element('div',undefined,'hole');hole.append(element('b','—'));circle.append(hole);empty.append(circle,element('span','ยังไม่มีข้อมูลสำหรับมุมมองนี้'));root.append(empty);return;}
  active.forEach(([name,value,count],i)=>{const p=total?value/total*100:0,item=element('article',undefined,'ringitem'),ring=element('div',undefined,'ring');const palette=palettes[id]||colors;ring.style.setProperty('--color',palette[i%palette.length]);ring.style.setProperty('--angle',p*3.6+'deg');ring.setAttribute('role','img');ring.setAttribute('aria-label',`${name} ${p.toFixed(1)}% ${fmt(value)} บาท`);const hole=element('div',undefined,'hole');hole.append(element('small','สัดส่วนวงเงิน'),element('b',p.toFixed(1)+'%'));ring.append(hole);item.append(ring,element('h3',name),element('p',fmt(value)+' บาท'));if(id==='method')item.append(element('small',Number(count||0).toLocaleString('th-TH')+' ฉบับ','ring-count'));root.append(item);});}
-function render(){if(!snapshot)return;const s=snapshot.views[$('staff').value]?.[$('month').value];if(!s)return;$('allocated').textContent=fmt(s.allocated);$('remaining').textContent=fmt(s.allocated-s.agreed);$('agreed').textContent=fmt(s.agreed);$('count').textContent=s.count.toLocaleString('th-TH');$('paid').textContent=fmt(s.paid);$('period').textContent='บาท · '+monthLabel($('month').value);const selected=$('categoryFilter').value;const options=s.category.map(([name])=>name);$('categoryFilter').replaceChildren(...['',...options].map(name=>{const o=element('option',name||'ทุกประเภทงาน');o.value=name;return o;}));$('categoryFilter').value=options.includes(selected)?selected:'';for(const k of ['budget','category','method'])rings(k,k==='category'&&$('categoryFilter').value?s[k].filter(([name])=>name===$('categoryFilter').value):s[k],(k==='budget'||k==='category'||k==='method')?s.allocated:s.agreed);renderFinance();renderOrders();
+const workGroups={
+ '20.1':'PC20.1 จ้างเหมาบริการ/ เช่าเครื่องมือแพทย์',
+ '20.2':'PC20.2 ซ่อมแซม ปรับปรุง ต่อเดิม รื้อถอน และบำรุงรักษา',
+ '20.2.3':'PC20.2.3 จ้างซ่อมครุภัณฑ์ทางการแพทย์/ สำนักงาน และอื่นๆ',
+ '20.3':'PC20.3 ค่าตรวจวิเคราะห์รับรองคุณภาพ',
+ '20.4':'PC20.4 ค่าใช้สอยอื่นๆ (เบี้ยประกันภัย)',
+ '20.5':'PC20.5 งบกลาง (กรณี ฉุกเฉิน จำเป็น เร่งด่วน)',
+ '23':'PC 23',
+};
+function workGroup(name){
+ const code=name.trim().match(/^PC[.\s]*(\d+(?:\.\d+)*)(?=\s|$)/i)?.[1];
+ const key=['20.2.3','20.2','20.1','20.3','20.4','20.5','23']
+   .find(prefix=>code===prefix||code?.startsWith(prefix+'.'));
+ return workGroups[key]||(name.trim()==='นอกแผน'?'นอกแผน':'อื่น ๆ / ไม่ระบุ');
+}
+function renderWorkCategories(rows,total){
+ const groups=new Map();
+ for(const [name,value] of rows){
+   const group=workGroup(name);
+   if(!groups.has(group))groups.set(group,{amount:0,rows:[]});
+   const entry=groups.get(group);
+   entry.amount+=Number(value||0);
+   entry.rows.push([name,Number(value||0)]);
+ }
+ const filter=$('categoryFilter'),selected=filter.value;
+ const ordered=[...Object.values(workGroups),'นอกแผน','อื่น ๆ / ไม่ระบุ'].filter(name=>groups.has(name));
+ filter.replaceChildren(...['',...ordered].map(name=>{
+   const option=element('option',name||'ทุกประเภทงาน');
+   option.value=name;
+   return option;
+ }));
+ filter.value=groups.has(selected)?selected:'';
+ const visible=filter.value?[filter.value]:ordered;
+ rings('category',visible.map(name=>[name,groups.get(name).amount]),total);
+ const root=$('category'),details=element('div',undefined,'finance-summary');
+ details.style.gridColumn='1 / -1';
+ details.style.width='100%';
+ for(const name of visible){
+   const section=element('section',undefined,'order-group');
+   section.append(element('h3',name));
+   const list=element('div',undefined,'finance-breakdown');
+   for(const [label,amount] of groups.get(name).rows){
+     const row=element('div',undefined,'finance-person');
+     row.append(element('span',label),element('strong',fmt(amount)+' บาท'));
+     list.append(row);
+   }
+   section.append(list);
+   details.append(section);
+ }
+ if(visible.length)root.append(details);
+}
+function render(){if(!snapshot)return;const s=snapshot.views[$('staff').value]?.[$('month').value];if(!s)return;$('allocated').textContent=fmt(s.allocated);$('remaining').textContent=fmt(s.allocated-s.agreed);$('agreed').textContent=fmt(s.agreed);$('count').textContent=s.count.toLocaleString('th-TH');$('paid').textContent=fmt(s.paid);$('period').textContent='บาท · '+monthLabel($('month').value);renderWorkCategories(s.category,s.allocated);for(const k of ['budget','method'])rings(k,s[k],s.allocated);renderFinance();renderOrders();
 $('warnings').textContent=s.unknown?'ยอดที่ยังแยกเดือนไม่ได้ '+fmt(s.unknown)+' บาท':'';}
 
 
