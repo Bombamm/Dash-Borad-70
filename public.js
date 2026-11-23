@@ -22,12 +22,12 @@ function workGroup(name){
 }
 function renderWorkCategories(rows,total){
  const groups=new Map();
- for(const [name,value] of rows){
+ for(const [name,value,count] of rows){
    const group=workGroup(name);
    if(!groups.has(group))groups.set(group,{amount:0,rows:[]});
    const entry=groups.get(group);
    entry.amount+=Number(value||0);
-   entry.rows.push([name,Number(value||0)]);
+   entry.rows.push([name,Number(value||0),count]);
  }
  const filter=$('categoryFilter'),selected=filter.value;
  const ordered=[...Object.values(workGroups),'นอกแผน','อื่น ๆ / ไม่ระบุ'].filter(name=>groups.has(name));
@@ -42,17 +42,12 @@ function renderWorkCategories(rows,total){
  const root=$('category'),details=element('div',undefined,'finance-summary');
  details.style.gridColumn='1 / -1';
  details.style.width='100%';
+ details.style.justifyItems='stretch';
  for(const name of visible){
-   const section=element('section',undefined,'order-group');
-   section.append(element('h3',name));
-   const list=element('div',undefined,'finance-breakdown');
-   for(const [label,amount] of groups.get(name).rows){
-     const row=element('div',undefined,'finance-person');
-     row.append(element('span',label),element('strong',fmt(amount)+' บาท'));
-     list.append(row);
-   }
-   section.append(list);
-   details.append(section);
+   const rows=groups.get(name).rows.slice().sort((a,b)=>b[1]-a[1]);
+   const card=orderGroup(name,rows,palettes.category);
+   card.querySelector('.finance-breakdown').style.borderTop='1px solid #e7edf5';
+   details.append(card);
  }
  if(visible.length)root.append(details);
 }
