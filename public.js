@@ -71,7 +71,27 @@ function renderWorkCategories(rows,total){
  }
  if(visible.length)root.append(details);
 }
-function render(){if(!snapshot)return;const s=snapshot.views[$('staff').value]?.[$('month').value];if(!s)return;$('allocated').textContent=fmt(s.allocated);$('remaining').textContent=fmt(s.allocated-s.agreed);$('agreed').textContent=fmt(s.agreed);$('count').textContent=s.count.toLocaleString('th-TH');$('paid').textContent=fmt(s.paid);$('period').textContent='บาท · '+monthLabel($('month').value);renderWorkCategories(s.category,s.allocated);for(const k of ['budget','method'])rings(k,s[k],s.allocated);renderFinance();renderOrders();
+function renderBudgetBars(rows){
+ const root=$('budget');
+ root.replaceChildren();
+ if(!rows.length){
+   root.append(element('p','ยังไม่มีข้อมูลงบประมาณ','finance-note'));
+   return;
+ }
+ const max=Math.max(1,...rows.map(([,amount])=>Number(amount)));
+ for(const [i,[name,amount]] of rows.entries()){
+   const item=element('div',undefined,'budget-column');
+   const track=element('div',undefined,'budget-column-track');
+   const bar=element('div',undefined,'budget-column-fill');
+   bar.style.height=Math.max(0,Number(amount)/max*100)+'%';
+   bar.style.background=palettes.budget[i%palettes.budget.length];
+   track.setAttribute('aria-hidden','true');
+   track.append(bar);
+   item.append(element('strong',fmt(Number(amount))+' บาท'),track,element('span',name));
+   root.append(item);
+ }
+}
+function render(){if(!snapshot)return;const s=snapshot.views[$('staff').value]?.[$('month').value];if(!s)return;$('allocated').textContent=fmt(s.allocated);$('remaining').textContent=fmt(s.allocated-s.agreed);$('agreed').textContent=fmt(s.agreed);$('count').textContent=s.count.toLocaleString('th-TH');$('paid').textContent=fmt(s.paid);$('period').textContent='บาท · '+monthLabel($('month').value);renderWorkCategories(s.category,s.allocated);renderBudgetBars(s.budget);$('method').replaceChildren(orderGroup('วิธีการจัดจ้าง',s.method,palettes.method));renderFinance();renderOrders();
 $('warnings').textContent=s.unknown?'ยอดที่ยังแยกเดือนไม่ได้ '+fmt(s.unknown)+' บาท':'';}
 
 
