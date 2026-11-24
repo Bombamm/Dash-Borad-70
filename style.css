@@ -57,3 +57,17 @@ html{scroll-padding-top:112px}
  #orders .finance-donut{width:200px;height:200px}
  #orders .finance-hole{width:156px;height:156px}
 }
+
+.pc-accordion{width:100%;padding:clamp(12px,2vw,20px)}
+.pc-accordion details{margin-top:9px;border:1px solid #dce8f5;border-radius:12px;background:#fff;overflow:hidden}
+.pc-accordion summary,.pc-subrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 16px;padding:12px 14px;overflow-wrap:anywhere}
+.pc-accordion summary{cursor:pointer;list-style:none;background:#f0f6ff;color:#173c66}
+.pc-accordion summary::-webkit-details-marker{display:none}
+.pc-accordion summary:focus-visible{outline:2px solid #286ab2;outline-offset:-3px}
+.pc-name{display:flex;align-items:baseline;gap:8px;font-weight:500}
+.pc-name::before{content:'＋';color:#286ab2}
+.pc-accordion details[open] .pc-name::before{content:'−'}
+.pc-metric{display:grid;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pc-metric strong{font-weight:500}.pc-metric small{color:#536c88}
+.pc-subrow{border-top:1px solid #e9eff7;font-size:14px}
+@media(max-width:480px){.pc-accordion summary,.pc-subrow{grid-template-columns:minmax(0,1fr)}}
