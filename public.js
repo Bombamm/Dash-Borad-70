@@ -80,6 +80,34 @@ function orderGroup(title,groups,palette){
  (groups||[]).forEach(([name,value,count],i)=>{const row=element('div',undefined,'finance-person'),label=element('span'),dot=element('i');dot.style.background=(palette||colors)[i%(palette||colors).length];label.append(dot,element('span',name));row.append(label,element('strong',fmt(Number(value||0))+' บาท'),element('small',Number(count||0).toLocaleString('th-TH')+' ฉบับ'));list.append(row);});
  if(!(groups||[]).length)list.append(element('p','ยังไม่มีข้อมูลในช่วงที่เลือก','finance-note'));section.append(list);return section;
 }
+function orderCategoryDetails(rows){
+ const section=element('section',undefined,'order-group');
+ section.append(element('h3','แยกตามหมวดหมู่ประเภทงาน'));
+ const groups=new Map();
+ for(const [raw,amount,count] of rows||[]){
+   const label=raw.trim()==='งบศูนย์แพททย์'?'งบศูนย์แพทย์':raw.trim();
+   const name=label==='งบศูนย์แพทย์'?label:workGroup(label);
+   if(!groups.has(name))groups.set(name,[]);
+   groups.get(name).push([label,Number(amount||0),Number(count||0)]);
+ }
+ const ordered=[...Object.keys(workGroups).sort((a,b)=>a.localeCompare(b,'en',{numeric:true})).map(code=>workGroups[code]),
+   'งบศูนย์แพทย์','เงินบริจาค','นอกแผน','อื่น ๆ / ไม่ระบุ'];
+ for(const name of ordered){
+   const children=groups.get(name);
+   if(!children)continue;
+   children.sort(([a],[b])=>(workCode(a)||'~').localeCompare(workCode(b)||'~','en',{numeric:true})||a.localeCompare(b,'th'));
+   const details=element('details'),summary=element('summary');
+   summary.style.cssText='cursor:pointer;padding:12px 0;border-top:1px solid #e7edf5;overflow-wrap:anywhere';
+   summary.append(document.createTextNode(name+' '),
+     element('strong',fmt(children.reduce((total,row)=>total+row[1],0))+' บาท'),
+     element('small',' · '+children.reduce((total,row)=>total+row[2],0).toLocaleString('th-TH')+' ฉบับ'));
+   const list=orderGroup(name,children,palettes.category).querySelector('.finance-breakdown');
+   details.append(summary,list);
+   section.append(details);
+ }
+ if(!groups.size)section.append(element('p','ยังไม่มีข้อมูลในช่วงที่เลือก','finance-note'));
+ return section;
+}
 function renderOrders(){
  if(!snapshot||!snapshot.orders)return;
  const data=snapshot.orders[$('staff').value]?.[$('issueMonth').value];if(!data)return;
@@ -88,7 +116,7 @@ function renderOrders(){
  ring.style.background=total?'linear-gradient(135deg,#f28c5b,#ec5799)':'#edf1f6';
  ring.setAttribute('role','img');ring.setAttribute('aria-label','วงเงินใบสั่งจ้างและสัญญา '+fmt(total)+' บาท จำนวน '+Number(data.count||0)+' ฉบับ');
  hole.append(element('small','รวม '+Number(data.count||0).toLocaleString('th-TH')+' ฉบับ'),element('b',fmt(total)),element('small','บาท · วงเงินตกลงจ้าง'));ring.append(hole);root.append(ring);
- const groups=element('div',undefined,'order-breakdowns');groups.append(orderGroup('แยกตามวิธีการจัดจ้าง',data.byMethod,palettes.method),orderGroup('แยกตามหมวดหมู่ประเภทงาน',data.byCategory,palettes.category));root.append(groups);
+ const groups=element('div',undefined,'order-breakdowns');groups.append(orderGroup('แยกตามวิธีการจัดจ้าง',data.byMethod,palettes.method),orderCategoryDetails(data.byCategory));root.append(groups);
  if(!total)root.append(element('p','ยังไม่มีใบสั่งจ้างหรือสัญญาในช่วงที่เลือก','finance-note'));
 }
 
