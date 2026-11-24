@@ -80,8 +80,8 @@ function orderGroup(title,groups,palette){
  (groups||[]).forEach(([name,value,count],i)=>{const row=element('div',undefined,'finance-person'),label=element('span'),dot=element('i');dot.style.background=(palette||colors)[i%(palette||colors).length];label.append(dot,element('span',name));row.append(label,element('strong',fmt(Number(value||0))+' บาท'),element('small',Number(count||0).toLocaleString('th-TH')+' ฉบับ'));list.append(row);});
  if(!(groups||[]).length)list.append(element('p','ยังไม่มีข้อมูลในช่วงที่เลือก','finance-note'));section.append(list);return section;
 }
-function orderCategoryDetails(rows){
- const section=element('section',undefined,'order-group');
+function orderCategoryDetails(rows, showCounts=true){
+ const section=element('section',undefined,'order-group pc-accordion');
  section.append(element('h3','แยกตามหมวดหมู่ประเภทงาน'));
  const groups=new Map();
  for(const [raw,amount,count] of rows||[]){
@@ -97,11 +97,18 @@ function orderCategoryDetails(rows){
    if(!children)continue;
    children.sort(([a],[b])=>(workCode(a)||'~').localeCompare(workCode(b)||'~','en',{numeric:true})||a.localeCompare(b,'th'));
    const details=element('details'),summary=element('summary');
-   summary.style.cssText='cursor:pointer;padding:12px 0;border-top:1px solid #e7edf5;overflow-wrap:anywhere';
-   summary.append(document.createTextNode(name+' '),
-     element('strong',fmt(children.reduce((total,row)=>total+row[1],0))+' บาท'),
-     element('small',' · '+children.reduce((total,row)=>total+row[2],0).toLocaleString('th-TH')+' ฉบับ'));
-   const list=orderGroup(name,children,palettes.category).querySelector('.finance-breakdown');
+   const metric=element('span',undefined,'pc-metric');
+   metric.append(element('strong',fmt(children.reduce((total,row)=>total+row[1],0))+' บาท'));
+   if(showCounts)metric.append(element('small',children.reduce((total,row)=>total+row[2],0).toLocaleString('th-TH')+' ฉบับ'));
+   summary.append(element('span',name,'pc-name'),metric);
+   const list=element('div',undefined,'pc-subrows');
+   for(const [label,amount,count] of children){
+     const row=element('div',undefined,'pc-subrow'),value=element('span',undefined,'pc-metric');
+     value.append(element('strong',fmt(amount)+' บาท'));
+     if(showCounts)value.append(element('small',count.toLocaleString('th-TH')+' ฉบับ'));
+     row.append(element('span',label),value);
+     list.append(row);
+   }
    details.append(summary,list);
    section.append(details);
  }
@@ -131,9 +138,7 @@ function renderFinance(){
  ring.style.background=total?'conic-gradient('+stops.join(',')+')':'#edf1f6';
  ring.setAttribute('role','img');ring.setAttribute('aria-label','ยอดส่งการเงินแยกตามหมวดหมู่งาน รวม '+fmt(total)+' บาท');
  hole.append(element('small','รวมทุกหมวด'),element('b',fmt(total)),element('small','บาท'));ring.append(hole);root.append(ring);
- const list=element('div',undefined,'finance-breakdown');
- groups.forEach(([name,value],i)=>{const row=element('div',undefined,'finance-person'),label=element('span'),dot=element('i');dot.style.background=palette[i%palette.length];label.append(dot,element('span',name));row.append(label,element('strong',fmt(value)+' บาท'),element('small',total?(value/total*100).toFixed(1)+'%':'—'));list.append(row);});
- root.append(list);if(!total)root.append(element('p','ยังไม่มียอดส่งการเงินในช่วงที่เลือก','finance-note'));
+ root.append(orderCategoryDetails(groups,false));
 }
 
 function financeMonths(){
